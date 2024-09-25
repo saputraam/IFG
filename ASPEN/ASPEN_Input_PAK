@@ -1,0 +1,90 @@
+import oracle.epm.api.model.SmartList
+
+def grid = operation.grid
+def testScript = ""
+def COA = null
+def Proker = null
+def COAValue = null
+def ProkerValue = null
+def moveValue = ""
+
+operation.grid.dataCellIterator('COA').each { coaCell ->
+    COA = coaCell.memberNames[0]
+    COAValue = new BigDecimal (coaCell.data)
+              println "Smart List Name or Value (COA): ${COAValue}"
+              SmartList smartListCOA = operation.application.getSmartList("PAK_COA")
+              def smartListEntryCOA = smartListCOA.getEntry(COAValue)
+              def smartListLabelCOA = smartListEntryCOA.getLabel()
+              println("SmartList Entry Label COA: " + smartListLabelCOA)
+
+    operation.grid.dataCellIterator('Proker').each { prokerCell ->
+        Proker = prokerCell.memberNames[0]
+        ProkerValue =  new BigDecimal (prokerCell.data)
+
+           
+
+        if (COA == Proker) {
+              println "Smart List Name or Value (Proker): ${ProkerValue}"
+              SmartList smartListPRO = operation.application.getSmartList("PAK_Proker")
+              def smartListEntryPRO = smartListPRO.getEntry(ProkerValue)
+              def smartListLabelPRO = smartListEntryPRO.getLabel()
+              println("SmartList Entry Label COA: " + smartListLabelPRO)
+            
+
+              testScript += """    
+                     "${smartListLabelCOA}"
+                     (IF("Assumptions" -> "COA" ==  $COAValue)
+                         "${smartListLabelCOA}" -> "${smartListLabelPRO}" = "Rencana Realisasi per bulan" ;
+                     ENDIF;) 
+                    
+                    """
+              
+              moveValue += """
+                         "${smartListLabelCOA}"
+                         ("${smartListLabelCOA}" -> "${smartListLabelPRO}" -> "No CustomDimension3" = 
+                          "${smartListLabelCOA}" -> "Custom Row";)
+                        """
+  }
+ }
+}
+
+String calcScript = """
+
+
+FIX(
+     ${cscParams(operation.grid.pov)},
+    "Jan":"Dec", 
+    @relative("Custom Row",0)
+);
+
+	${testScript}
+         
+ENDFIX;
+
+FIX(
+"BaseData",
+"IDR", 
+"Direct Input", 
+"No LOB & Produk", 
+"No CustomDimension1", 
+"No CustomDimension2", 
+"No Bank & Invest", 
+"No Intercompany", 
+"No Channel", 
+"OEP_Plan", 
+"Sandboxes", 
+"No Cost Center",
+"No Branch", 
+"FY24", 
+"19000000000", 
+"Jan":"Dec");
+ 
+    ${moveValue}
+
+ ENDFIX;
+
+"""
+
+println("The following calc script was executed by $operation.user.fullName: \n $calcScript")
+return calcScript.toString()
+
